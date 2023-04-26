@@ -71,9 +71,8 @@ contract Contract {
         //owner.transfer(address(this).balance);
     }
     // Accept any incoming amount
-    receive () external payable {}
-
-
+    receive () external payable {
+        uint increase  = msg.value / (maxUnitsPerResponse * unitInWei + showUpFeeInWei);
+        max_participants += increase;
+    }
 }
-
-
