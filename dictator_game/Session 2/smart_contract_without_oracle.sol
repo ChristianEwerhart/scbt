@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Unlicensed
-pragma solidity >=0.8.0 <0.9.0;
+pragma solidity >=0.8.0 <0.8.20;
 
 contract DictatorGame {
     address payable public owner1; // owner1 of contract
@@ -11,24 +11,24 @@ contract DictatorGame {
     uint public showUpFee;
     address payable public charity = payable(0xaf68dbA1103d206C402187C1AdD55FD94E23Eba5);
 
-    uint public sessionSize = 20; //max amount of participants
-    uint public amountToAllocateInECU = 50; //amount available to allocate for each individual
-
     enum Status { NONE, REGISTERED, COMPLETED, PAID, REFUSED }
-
-    struct Data {
-        Status status;
-        uint decision;
-        uint encryptedDecision;
-    }
 
     mapping(address => Data) public registry;
 
-    struct PaymentData {
+    struct Data {
+        Status status;
         address participant;
         uint decision;
         uint key;
     }
+    
+    uint[] arrayOfParticipants;
+    uint[] arrayOfKeys;
+    uint[] arrayOfDecisions; 
+    
+    //***************************CONSTRUCTOR***************************
+    uint public sessionSize = 20; //max amount of participants
+    uint public amountToAllocateInECU = 50; //amount available to allocate for each individual
 
     constructor(Network _network, address _owner2) {
         require(msg.sender != _owner2, "owner1 must differ from owner2");
@@ -46,7 +46,7 @@ contract DictatorGame {
         showUpFee = ECU / 2;
     }
 
-    //INTERACTION MODULE
+    //***************************INTERACTION MODULE***************************
     function registration() external {
         require(registry[msg.sender].status == Status.NONE, "Encumbered wallet address.");
         require(registrations <= sessionSize, "Maximum number of participants reached.");
@@ -81,9 +81,9 @@ contract DictatorGame {
         return registrations < sessionSize;
     }
 
-    //EXPERIMENTER'S MODULE
+    //***************************EXPERIMENTER'S MODULE***************************
 
-    //modifier for functions that only the owner is supossed to use
+    //modifier for functions that only the owner is supposed to use
     modifier onlyOwner() {
         require((msg.sender == owner1) || (msg.sender == owner2), "only owner1 or owner2");
         _;
@@ -92,13 +92,15 @@ contract DictatorGame {
     // Accept any incoming amount
     receive () external payable {}
 
-    //Sends the funds to the participants
+    //Sends the funds to the participants!!!
+            send_money(
+                payable(_arrayOfParticipants[i]),
+                _arrayOfKeys[i],
+                _arrayOfDecisions[i]
+            );
+
     function send_money(address payable _player, uint _key, uint _decision) public payable onlyOwner {
-        //Check that only participants that are registered, have made a decision and have not been paid yet get paid
-        require(registry[_player].status == Status.COMPLETED, "participant not correctly registered or already payed");
-        require(_key + _decision == registry[_player].encryptedDecision);
-        //get the amount the participant wants to donate
-        registry[_player].decision = _decision;
+        for(uint i = 0; i < _array.length; i++) {
         //send the funds to charity
         charity.transfer(_decision * ECU);
         //send the funds to the participant
@@ -107,12 +109,36 @@ contract DictatorGame {
         registry[_player].status = Status.PAID;
     }
 
-    function sendMoneyForN(PaymentData[] calldata _array) external {
-        for(uint i = 0; i < _array.length; i++) {
-            send_money(
-                payable(_array[i].participant),
-                _array[i].key,
-                _array[i].decision
+    function checkPaymentData(uint _n) returns (uint, uint, uint) external { 
+            return(
+                arrayOfParticipants[_n], 
+                arrayOfKeys[_n], 
+                arrayOfDecisions[_n], 
+            ) external {
+        }
+    }
+    
+    
+        //Check that only participants that are registered, have made a decision and have not been paid yet get paid
+        
+        require(_key + _decision == registry[_player].encryptedDecision);
+        //get the amount the participant wants to donate
+        registry[_player].decision = _decision;
+    
+    function storePaymentData(
+            uint[] memory _arrayOfParticipants, 
+            uint[] memory arrayOfKeys, 
+            uint[] memory arrayOfDecisisons
+            ) external {
+        require(_arrayOfParticipants.length == _arrayOfkeys.length && _arrayOfkeys.length == _arrayOfDecisions.length, "invalid data"); 
+        arrayOfParticipants = _arrayOfParticipants;
+        arrayOfKeys = _arrayOfKeys;
+        arrayOfDecisions = _arrayOfDecisions;
+        for(uint i = 0; i < _arrayOfParticipants.length; i++) {
+            player = _arrayOfParticipants[i];
+            
+            require(registry[player].status == Status.COMPLETED, "participant not correctly registered or already payed");
+            require(_key + _decision == registry[_player].encryptedDecision);
             );
         }
     }
