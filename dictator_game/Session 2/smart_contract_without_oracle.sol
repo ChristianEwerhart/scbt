@@ -9,23 +9,22 @@ contract DictatorGame {
     Network network;
     uint public ECU;
     uint public showUpFee;
+    uint refused;
     address payable public charity = payable(0xaf68dbA1103d206C402187C1AdD55FD94E23Eba5);
 
-    enum Status { NONE, REGISTERED, COMPLETED, PAID, REFUSED }
+    enum Status { NONE, REGISTERED, COMPLETED, CLEARED, PAID, REFUSED }
 
     mapping(address => Data) public registry;
 
     struct Data {
         Status status;
-        address participant;
-        uint decision;
+        uint encryptedDecision;
         uint key;
+        uint decision;
     }
     
-    uint[] arrayOfParticipants;
-    uint[] arrayOfKeys;
-    uint[] arrayOfDecisions; 
-    
+    address[] submissions;
+        
     //***************************CONSTRUCTOR***************************
     uint public sessionSize = 20; //max amount of participants
     uint public amountToAllocateInECU = 50; //amount available to allocate for each individual
@@ -90,56 +89,45 @@ contract DictatorGame {
     }
 
     // Accept any incoming amount
-    receive () external payable {}
+    receive() external payable {}
 
-    //Sends the funds to the participants!!!
-            send_money(
-                payable(_arrayOfParticipants[i]),
-                _arrayOfKeys[i],
-                _arrayOfDecisions[i]
-            );
-
-    function send_money(address payable _player, uint _key, uint _decision) public payable onlyOwner {
-        for(uint i = 0; i < _array.length; i++) {
-        //send the funds to charity
-        charity.transfer(_decision * ECU);
-        //send the funds to the participant
-        _player.transfer(showUpFee + (amountToAllocateInECU - _decision) * ECU);
-        //mark participant as paid
-        registry[_player].status = Status.PAID;
-    }
-
-    function checkPaymentData(uint _n) returns (uint, uint, uint) external { 
-            return(
-                arrayOfParticipants[_n], 
-                arrayOfKeys[_n], 
-                arrayOfDecisions[_n], 
-            ) external {
+    function sendMoney(uint reallyDoIt) public payable onlyOwner {
+        require(reallyDoIt == 2023, "rejected");
+        for(uint i = 0; i < submissions.length; i++) {
+            //send the funds to charity
+            charity.transfer(registry[submissions[i]].decision * ECU);
+            //send the funds to the participant
+            payable(submissions[i]).transfer(showUpFee + (amountToAllocateInECU - registry[submissions[i]].decision) * ECU);
+            //mark participant as paid
+            registry[submissions[i]].status = Status.PAID;
         }
+    }   
+
+    function checkPaymentData(uint _n) external view returns (Data memory) { 
+            return(registry[submissions[_n]]);
     }
-    
-    
-        //Check that only participants that are registered, have made a decision and have not been paid yet get paid
-        
-        require(_key + _decision == registry[_player].encryptedDecision);
-        //get the amount the participant wants to donate
-        registry[_player].decision = _decision;
     
     function storePaymentData(
-            uint[] memory _arrayOfParticipants, 
-            uint[] memory arrayOfKeys, 
-            uint[] memory arrayOfDecisisons
+            address[] memory _participants, 
+            uint[] memory _keys, 
+            uint[] memory _decisions
             ) external {
-        require(_arrayOfParticipants.length == _arrayOfkeys.length && _arrayOfkeys.length == _arrayOfDecisions.length, "invalid data"); 
-        arrayOfParticipants = _arrayOfParticipants;
-        arrayOfKeys = _arrayOfKeys;
-        arrayOfDecisions = _arrayOfDecisions;
-        for(uint i = 0; i < _arrayOfParticipants.length; i++) {
-            player = _arrayOfParticipants[i];
-            
-            require(registry[player].status == Status.COMPLETED, "participant not correctly registered or already payed");
-            require(_key + _decision == registry[_player].encryptedDecision);
-            );
+        require(_participants.length == sessionSize - refused, "length mismatch participants"); 
+        require(_keys.length == sessionSize - refused, "length mismatch keys");
+        require(_decisions.length == sessionSize - refused, "length mismatch decisions");
+        submissions = _participants;
+        for(uint i = 0; i < submissions.length; i++) {
+            require(
+                registry[submissions[i]].status == Status.COMPLETED, 
+                "participant not correctly registered or already payed"
+                );
+            require(
+                registry[submissions[i]].key + registry[submissions[i]].decision == registry[submissions[i]].encryptedDecision, 
+                "inconsistent data"
+                );
+            registry[submissions[i]].decision = _decisions[i];
+            registry[submissions[i]].key = _keys[i];
+            registry[submissions[i]].status = Status.CLEARED;
         }
     }
 
@@ -152,6 +140,7 @@ contract DictatorGame {
         registry[_participant].status = Status.REFUSED;
         //increase the session size by 1
         sessionSize += 1;
+        refused+=1;
     }
 
     //Change the owner
